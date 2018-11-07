@@ -1,0 +1,226 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "dnsLabelPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Unique DNS Name for the Storage Account where the Virtual Machine's disks will be placed."
+      }
+    },
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Username for the Virtual Machine."
+      }
+    },
+    "domainJoinUserName": {
+      "type": "string",
+      "metadata": {
+        "description": "Domain NetBiosName plus User name of a domain user with sufficient rights to perfom domain join operation. E.g. domain\\username"
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Password for the Virtual Machine."
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "metadata": {
+        "description": "Size of VM"
+      }
+    },
+    "sizeOfEachDataDiskInGB": {
+      "type": "string",
+      "metadata": {
+        "description": "Size of each data disk in GB"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources."
+      }
+    },
+    "vmname": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "List of virtual machines to be domain joined, if using multiple VMs, make their names comma separate. E.g. VM01, VM02, VM03."
+      }
+    },
+    "domainFQDN": {
+      "type": "string",
+      "metadata": {
+        "description": "Domain FQDN where the virtual machine will be joined"
+      }
+    },
+    "ouPath": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Specifies an organizational unit (OU) for the domain account. Enter the full distinguished name of the OU in quotation marks. Example: \"OU=testOU; DC=domain; DC=Domain; DC=com\""
+      }
+    }
+  },
+  "variables": {
+    "storageAccountName": "[concat(uniquestring(resourceGroup().id), 'saddiskvm')]",
+    "subnet1Name": "adSubnet",
+    "imagePublisher": "MicrosoftWindowsServer",
+    "imageOffer": "WindowsServer",
+    "imageSKU": "2016-Datacenter",
+    "imageVersion": "latest",
+    "publicIPAddressName": "[concat(parameters('dnsLabelPrefix'), 'publicIP')]",
+    "publicIPAddressType": "Dynamic",
+    "storageAccountType": "Standard_LRS",
+    "virtualNetworkName": "adVNET",
+    "vnetID": "[resourceId('Microsoft.Network/virtualNetworks',variables('virtualNetworkName'))]",
+    "nicName": "[concat(parameters('dnsLabelPrefix'), 'NIC')]",
+    "subnet1Ref": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), variables('subnet1Name'))]",
+    "apiVersion": "2015-06-15",
+    "domainJoinOptions": 3
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "name": "[variables('storageAccountName')]",
+      "apiVersion": "2015-06-15",
+      "location": "[parameters('location')]",
+      "properties": {
+        "accountType": "[variables('storageAccountType')]"
+      }
+    },
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('publicIPAddressName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publicIPAllocationMethod": "[variables('publicIPAddressType')]",
+        "dnsSettings": {
+          "domainNameLabel": "[parameters('dnsLabelPrefix')]"
+        }
+      }
+    },
+    {
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[variables('nicName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('publicIPAddressName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses',variables('publicIPAddressName'))]"
+              },
+              "subnet": {
+                "id": "[variables('subnet1Ref')]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2016-04-30-preview",
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "[parameters('vmName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[concat('Microsoft.Storage/storageAccounts/', variables('storageAccountName'))]",
+        "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('vmName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[variables('imagePublisher')]",
+            "offer": "[variables('imageOffer')]",
+            "sku": "[variables('imageSKU')]",
+            "version": "[variables('imageVersion')]"
+          },
+          "dataDisks": [
+            {
+              "diskSizeGB": "[parameters('sizeOfEachDataDiskInGB')]",
+              "lun": 0,
+              "createOption": "Empty"
+            },
+            {
+              "diskSizeGB": "[parameters('sizeOfEachDataDiskInGB')]",
+              "lun": 1,
+              "createOption": "Empty"
+            },
+            {
+              "diskSizeGB": "[parameters('sizeOfEachDataDiskInGB')]",
+              "lun": 2,
+              "createOption": "Empty"
+            },
+            {
+              "diskSizeGB": "[parameters('sizeOfEachDataDiskInGB')]",
+              "lun": 3,
+              "createOption": "Empty"
+            }
+          ],
+          "osDisk": {
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces',variables('nicName'))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true,
+            "storageUri": "[concat(reference(concat('Microsoft.Storage/storageAccounts/', variables('storageAccountName')), variables('apiVersion')).primaryEndpoints.blob)]"
+          }
+        }
+      }
+    },
+    {
+      "comments": "Join domain - JsonADDomainExtension",
+      "apiVersion": "2015-06-15",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "name": "[concat(trim(parameters('vmname')),'/joindomain')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[concat('Microsoft.Compute/virtualMachines/', parameters('vmname'))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Compute",
+        "type": "JsonADDomainExtension",
+        "typeHandlerVersion": "1.3",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "Name": "[parameters('domainFQDN')]",
+          "User": "[parameters('domainJoinUserName')]",
+          "Restart": "true",
+          "Options": "[variables('domainJoinOptions')]",
+          "OUPath": "[parameters('ouPath')]"
+        },
+        "protectedSettings": {
+          "Password": "[parameters('adminPassword')]"
+        }
+      }
+    }
+  ]
+}

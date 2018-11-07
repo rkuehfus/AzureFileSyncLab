@@ -1,0 +1,23 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "adminUsername": {
+            "value": "vmadmin"
+        },
+        "adminPassword": {
+            "reference": {
+              "keyVault": {
+                "id": "/subscriptions/{guid}/resourceGroups/{group-name}/providers/Microsoft.KeyVault/vaults/{vault-name}"
+              },
+              "secretName": "DefaultPassword"
+            }
+          },
+        "dnsPrefix": {
+            "value": "<your initials>fsyncad"
+        },
+        "domainName": {
+            "value": "demo.local"
+        }
+    }
+}
