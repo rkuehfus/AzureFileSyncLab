@@ -5,10 +5,10 @@ Connect-AzureRmAccount
 (Get-AzureRmLocation).Location
 
 #Step 1: Create Key Vault and set flag to enable for template deployment with ARM
-$rgname="<your initials> FileSyncLab"
+$rgname="<your initials>FileSyncLab"
 New-AzureRmResourceGroup -Name $rgname -Location eastus 
 $rg = Get-AzureRmResourceGroup -Name $rgname
-$fsyncVaultName = 'fsyncVault'
+$fsyncVaultName = 'fsyncVault<your initails>'
 New-AzureRmKeyVault -VaultName $fsyncVaultName -ResourceGroupName $rg.ResourceGroupName -Location $rg.Location -EnabledForTemplateDeployment
 
 #Step 2: Add password as a secret.  Note:this will prompt you for a user and password.  User should be vmadmin and a password that meet the azure pwd police like P@ssw0rd123!!
